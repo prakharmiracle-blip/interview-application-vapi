@@ -439,29 +439,48 @@ const startInterview = async () => {
       }
     };
 
-  const endInterview = () => {
-    if (vapiRef.current && isCallActive) {
-      // End the Vapi call
-      // vapiRef.current.stop();
+const endInterview = () => {
+  // Stop Vapi call
+  if (vapiRef.current && isCallActive) {
+    try {
+      if (typeof vapiRef.current.stop === 'function') {
+        vapiRef.current.stop();
+      }
+    } catch (error) {
+      console.error('Error stopping Vapi call:', error);
     }
-    
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+  }
+  
+  // Clear timer
+  if (timerRef.current) {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+  }
 
-    // Stop media tracks
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    
-    setIsCallActive(false);
-    setIsMicEnabled(false);
-    setIsCameraEnabled(false);
-    setPermissionsGranted(false);
-    setStep('completed');
-    setCallStatus('Interview completed');
-  };
+  // Stop all media tracks (camera and microphone)
+  if (stream) {
+    stream.getTracks().forEach(track => {
+      track.stop();
+      console.log('Stopped track:', track.kind);
+    });
+    setStream(null);
+  }
+
+  // Clear video element
+  if (videoRef.current) {
+    videoRef.current.srcObject = null;
+  }
+  
+  // Reset all states
+  setIsCallActive(false);
+  setIsMicEnabled(false);
+  setIsCameraEnabled(false);
+  setPermissionsGranted(false);
+  setStep('completed');
+  setCallStatus('Interview completed');
+  
+  console.log('Interview ended - all media stopped');
+};
 
   const addToTranscript = (speaker, text) => {
     setTranscript(prev => [...prev, { speaker, text, timestamp: new Date() }]);
