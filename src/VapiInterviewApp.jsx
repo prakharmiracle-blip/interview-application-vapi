@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Upload, Briefcase, FileText, MessageSquare, Clock, CheckCircle, Video, VideoOff, Camera } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
 
 const VapiInterviewApp = () => {
   const [step, setStep] = useState('setup'); // setup, permissions, interview, completed
@@ -32,6 +34,10 @@ const VapiInterviewApp = () => {
       document.body.removeChild(script);
     };
   }, [stream]);
+  // Set up PDF.js worker
+  useEffect(() => {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  }, []);
 
   // Debug: show Vite env var in browser console to verify it's loaded
   useEffect(() => {
@@ -194,23 +200,54 @@ const VapiInterviewApp = () => {
     }
   };
 
-  const handleFileUpload = (e) => {
+const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const name = file.name || '';
-      const lower = name.toLowerCase();
-      // Avoid reading binary files (PDFs, docs) as text which injects binary into the prompt
-      if (file.type === 'application/pdf' || lower.endsWith('.pdf') || lower.endsWith('.doc') || lower.endsWith('.docx')) {
-        alert('Detected a PDF/DOC upload. Please paste the resume text into the textarea instead (PDF/DOC binary cannot be sent to the API).');
-        setResumeText('');
-        return;
+    if (!file) return;
+
+    try {
+      let extractedText = '';
+      const fileType = file.type;
+      const fileName = file.name.toLowerCase();
+
+      // Handle PDF files
+      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+          extractedText += pageText + '\n\n';
+        }
+        
+        setResumeText(extractedText.trim());
+        alert('✓ PDF text extracted successfully!');
+      } 
+      // Handle DOC/DOCX files
+      else if (fileName.endsWith('.doc') || fileName.endsWith('.docx') || 
+               fileType === 'application/msword' || 
+               fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        extractedText = result.value;
+        
+        setResumeText(extractedText.trim());
+        alert('✓ Document text extracted successfully!');
+      }
+      // Handle plain text files
+      else {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setResumeText(event.target.result);
+        };
+        reader.readAsText(file);
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setResumeText(event.target.result);
-      };
-      reader.readAsText(file);
+    } catch (error) {
+      console.error('Error extracting text:', error);
+      alert('Failed to extract text from file. Please copy and paste the text manually into the textarea below.');
+      setResumeText('');
     }
   };
 
