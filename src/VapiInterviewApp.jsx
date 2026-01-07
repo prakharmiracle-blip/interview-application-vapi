@@ -492,7 +492,7 @@ const startInterview = async () => {
             <Briefcase className="w-8 h-8 text-indigo-600" />
             <div>
               <h1 className="text-3xl font-bold text-gray-800">AI Interview Assistant</h1>
-              <p className="text-gray-600">Powered by Vapi - Intelligent Voice AI</p>
+              <p className="text-gray-600">Powered by Miracle Corporate Solutions</p>
             </div>
           </div>
         </div>
