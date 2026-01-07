@@ -440,11 +440,14 @@ const startInterview = async () => {
     };
 
 const endInterview = () => {
-  // Stop Vapi call
+  console.log('=== END INTERVIEW CALLED ===');
+  
+  // Stop Vapi call FIRST
   if (vapiRef.current && isCallActive) {
     try {
       if (typeof vapiRef.current.stop === 'function') {
         vapiRef.current.stop();
+        console.log('✓ Vapi call stopped');
       }
     } catch (error) {
       console.error('Error stopping Vapi call:', error);
@@ -457,31 +460,46 @@ const endInterview = () => {
     timerRef.current = null;
   }
 
-  // Stop all media tracks (camera and microphone)
+  // CRITICAL: Stop ALL media tracks BEFORE clearing video
   if (stream) {
-    stream.getTracks().forEach(track => {
+    console.log('Stopping all media tracks...');
+    const tracks = stream.getTracks();
+    tracks.forEach(track => {
+      console.log(`Stopping ${track.kind} track:`, track.label);
       track.stop();
-      console.log('Stopped track:', track.kind);
+      track.enabled = false; // Disable track
     });
-    setStream(null);
+    console.log('All tracks stopped');
   }
 
-  // Clear video element
+  // Clear video element AFTER stopping tracks
   if (videoRef.current) {
     videoRef.current.srcObject = null;
+    videoRef.current.pause();
+    videoRef.current.load(); // Force reload to release resources
+    console.log('✓ Video element cleared');
   }
+
+  // Clear stream state
+  setStream(null);
   
   // Reset all states
   setIsCallActive(false);
   setIsMicEnabled(false);
   setIsCameraEnabled(false);
   setPermissionsGranted(false);
-  setStep('completed');
   setCallStatus('Interview completed');
   
-  console.log('Interview ended - all media stopped');
+  console.log('✓ All states reset');
+  
+  // Change to completed screen with slight delay to ensure cleanup
+  setTimeout(() => {
+    setStep('completed');
+    console.log('✓ Moved to completed screen');
+  }, 100);
+  
+  console.log('=== INTERVIEW ENDED - ALL MEDIA STOPPED ===');
 };
-
   const addToTranscript = (speaker, text) => {
     setTranscript(prev => [...prev, { speaker, text, timestamp: new Date() }]);
   };
